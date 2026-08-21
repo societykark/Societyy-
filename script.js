@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ========== CONFIGURACIÓN ==========
-const BASE_URL = process.env.BASE_URL || 'https://tu-servidor.com'; // 🔥 CAMBIA ESTO
+const BASE_URL = process.env.BASE_URL || 'https://wispy-bonus-51e9.societykark.workers.dev/'; // 🔥 CAMBIA ESTO
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_ID = process.env.ADMIN_ID;
 const WORKER_URL = process.env.WORKER_URL || ''; // Opcional, para usar proxy
