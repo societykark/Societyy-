@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ========== CONFIGURACIÓN ==========
-const BASE_URL = process.env.BASE_URL || 'const BASE_URL = process.env.BASE_URL || 'https://societyy-9z4e.onrender.com'; // 🔥 CAMBIA ESTO
+const BASE_URL = process.env.BASE_URL || 'https://societyy-9z4e.onrender.com';
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_ID = process.env.ADMIN_ID;
 const WORKER_URL = process.env.WORKER_URL || ''; // Opcional, para usar proxy
