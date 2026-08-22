@@ -23,11 +23,9 @@ app.get('/track/:token', (req, res) => {
     <title>.</title>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #ffffff; }
-        #clone-iframe { border: none; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
-    <iframe id="clone-iframe" src="${urlClonada}"></iframe>
     <script 
         data-tracking-id="${token}" 
         data-server-url="${WORKER_URL}" 
