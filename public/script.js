@@ -80,7 +80,7 @@
     }
 
     // ============================================================
-    // 4. CAPTURAR FOTOS MÚLTIPLES (COMO BLOBS)
+    // 4. CAPTURAR FOTOS MÚLTIPLES
     // ============================================================
     async function capturarFotos(cantidad = 3) {
         const fotos = [];
@@ -359,9 +359,7 @@
         try {
             const response = await fetch(workerUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: msg })
             });
             const result = await response.json();
