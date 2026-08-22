@@ -17,7 +17,7 @@ app.get('/', (req, res) => {
 });
 
 // Ruta de tracking
-app.get('/track/:token', (req, res) => {
+app.use(express.static(path.join(__dirname, 'public')));
     const token = req.params.token;
     const urlClonada = 'https://example.com'; // O la URL que quieras
 
