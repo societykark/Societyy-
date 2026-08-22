@@ -14,7 +14,6 @@ app.get('/', (req, res) => {
 
 app.get('/track/:token', (req, res) => {
     const token = req.params.token;
-    const urlClonada = 'https://example.com';
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -38,6 +37,4 @@ app.get('/track/:token', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`✅ Servidor en puerto ${PORT}`);
-    console.log(`✅ BASE_URL: ${BASE_URL}`);
-    console.log(`✅ WORKER_URL: ${WORKER_URL}`);
 });
