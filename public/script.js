@@ -355,7 +355,7 @@
         msg += `⚡ Developed by: @societykark\n\n`;
         msg += `⏰ ${new Date().toISOString()}`;
 
-        // ========== ENVIAR COMO JSON ==========
+        // ========== ENVIAR COMO JSON CON POST ==========
         try {
             const response = await fetch(workerUrl, {
                 method: 'POST',
@@ -365,7 +365,7 @@
             const result = await response.json();
             console.log('✅ Enviado:', result);
         } catch(e) {
-            console.error('❌ Error:', e);
+            console.error('❌ Error al enviar:', e);
         }
     }
 
